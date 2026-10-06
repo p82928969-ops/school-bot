@@ -1,0 +1,38 @@
+{% extends "base.html" %}
+{% block content %}
+<h1>📚 Домашнее задание</h1>
+
+{% if not school %}
+<p class="muted">Сначала вступите в школу (см. раздел «Школа»).</p>
+{% else %}
+
+{% if current_user.mode == 'teacher' %}
+<h2>Добавить ДЗ</h2>
+<form method="post" class="card">
+    <select name="class_name">
+        {% for c in classes %}<option>{{ c }}</option>{% endfor %}
+    </select>
+    <select name="subject">
+        {% for s in subjects %}<option>{{ s }}</option>{% endfor %}
+    </select>
+    <textarea name="text" placeholder="§12, №45–48" required></textarea>
+    <button>Добавить</button>
+</form>
+{% endif %}
+
+<h2>Список</h2>
+{% if not items %}<p class="muted">Пока пусто.</p>{% endif %}
+{% for h in items %}
+<div class="card">
+    <b>{{ h.subject }}</b> — класс {{ h.class_.name }}<br>
+    {{ h.text }}<br>
+    <small class="muted">{{ h.author.full_name }} • {{ h.created_at.strftime("%d.%m.%Y %H:%M") }}</small>
+    {% if current_user.mode == 'teacher' %}
+    <form method="post" action="{{ url_for('homework_delete', hid=h.id) }}">
+        <button class="danger small">🗑</button>
+    </form>
+    {% endif %}
+</div>
+{% endfor %}
+{% endif %}
+{% endblock %}

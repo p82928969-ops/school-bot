@@ -1,0 +1,24 @@
+{% extends "base.html" %}
+{% block content %}
+<h1>📅 Расписание</h1>
+
+{% for day in days %}
+<div class="card">
+    <h3>{{ day }}</h3>
+    {% if rows.get(day) %}
+        <p class="content">{{ rows[day] }}</p>
+    {% else %}
+        <p class="muted">— пусто —</p>
+    {% endif %}
+    <form method="post" class="row">
+        <input type="hidden" name="day" value="{{ day }}">
+        <input name="content" placeholder="Математика 9:00, Физика 11:00" value="{{ rows.get(day, '') }}">
+        <button>Сохранить</button>
+    </form>
+</div>
+{% endfor %}
+
+<form method="post" action="{{ url_for('schedule_clear') }}">
+    <button class="danger">🗑 Очистить всё</button>
+</form>
+{% endblock %}

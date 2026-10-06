@@ -1,0 +1,38 @@
+{% extends "base.html" %}
+{% block content %}
+<h1>📝 Мои оценки</h1>
+
+<div class="card">
+    <h2>Быстрый расчёт</h2>
+    <form method="post" action="{{ url_for('grades_calc') }}" class="row">
+        <input name="grades" placeholder="4, 5, 3, 4, 5">
+        <button>Посчитать</button>
+    </form>
+</div>
+
+<h2>Добавить оценку</h2>
+<form method="post" class="card row">
+    <select name="subject">
+        {% for s in subjects %}<option>{{ s }}</option>{% endfor %}
+    </select>
+    <input name="grades" placeholder="5, 4, 4">
+    <button>Добавить</button>
+</form>
+
+{% if summary %}
+<h2>Сводка</h2>
+<table class="table">
+    <tr><th>Предмет</th><th>Кол-во</th><th>Средний</th><th>Округлённо</th></tr>
+    {% for s, d in summary.items() %}
+    <tr>
+        <td>{{ s }}</td>
+        <td>{{ d.count }}</td>
+        <td>{{ "%.2f"|format(d.avg) }}</td>
+        <td>{{ d.rounded }}</td>
+    </tr>
+    {% endfor %}
+</table>
+<p><b>Общий средний:</b> {{ "%.2f"|format(overall) }} → {{ overall_rounded }}</p>
+<p>{{ encouragement }}</p>
+{% endif %}
+{% endblock %}

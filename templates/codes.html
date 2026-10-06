@@ -1,0 +1,21 @@
+{% extends "base.html" %}
+{% block content %}
+<h1>🔑 Коды и связи</h1>
+
+<div class="card">
+    <p><b>Ваш код учителя:</b> <code>{{ current_user.teacher_code }}</code></p>
+    <p><b>Ваш код ученика:</b> <code>{{ current_user.student_code }}</code></p>
+</div>
+
+<h2>Привязаться к учителю (ученик)</h2>
+<form method="post" action="{{ url_for('link_teacher') }}" class="card row">
+    <input name="code" placeholder="Код учителя" required>
+    <button>Привязать</button>
+</form>
+
+<h2>Привязаться к ученику (родитель)</h2>
+<form method="post" action="{{ url_for('link_student') }}" class="card row">
+    <input name="code" placeholder="Код ученика" required>
+    <button>Привязать</button>
+</form>
+{% endblock %}

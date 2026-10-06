@@ -1,0 +1,31 @@
+{% extends "base.html" %}
+{% block content %}
+<h1>👤 Профиль</h1>
+<div class="card">
+    <p><b>Логин:</b> {{ current_user.username }}</p>
+    <p><b>Имя:</b> {{ current_user.full_name }}</p>
+    <p><b>Режим:</b> {{ mode_title }}</p>
+    {% if school %}<p><b>Школа:</b> {{ school.name }}</p>{% endif %}
+    {% if current_user.user_class %}<p><b>Класс:</b> {{ current_user.user_class.name }}</p>{% endif %}
+</div>
+
+<h2>Сменить режим</h2>
+<form method="post" class="card row">
+    <select name="mode">
+        <option value="student" {% if current_user.mode=='student' %}selected{% endif %}>🎓 Ученик</option>
+        <option value="parent"  {% if current_user.mode=='parent'  %}selected{% endif %}>👨‍👩‍👧 Родитель</option>
+        <option value="teacher" {% if current_user.mode=='teacher' %}selected{% endif %}>👩‍🏫 Учитель</option>
+    </select>
+    <button>Сохранить</button>
+</form>
+
+{% if school and classes %}
+<h2>Сменить класс</h2>
+<form method="post" action="{{ url_for('set_class') }}" class="card row">
+    <select name="class_name">
+        {% for c in classes %}<option>{{ c }}</option>{% endfor %}
+    </select>
+    <button>Выбрать</button>
+</form>
+{% endif %}
+{% endblock %}

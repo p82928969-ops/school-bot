@@ -1,0 +1,37 @@
+{% extends "base.html" %}
+{% block content %}
+<h1>⏰ Напоминания</h1>
+
+<form method="post" class="card">
+    <input name="text" placeholder="О чём напомнить" required>
+    <input name="when" type="datetime-local" required>
+    <button>Добавить</button>
+</form>
+
+{% if items %}
+<h2>Список</h2>
+{% for r in items %}
+<div class="card row">
+    <div>
+        <b>{{ r.when.strftime("%d.%m.%Y %H:%M") }}</b> — {{ r.text }}
+    </div>
+    <form method="post" action="{{ url_for('reminder_delete', rid=r.id) }}">
+        <button class="danger small">🗑</button>
+    </form>
+</div>
+{% endfor %}
+{% else %}
+<p class="muted">Пусто.</p>
+{% endif %}
+
+<script>
+// проверка due-напоминаний раз в 30 сек
+setInterval(async () => {
+    const res = await fetch('/api/reminders/due');
+    const rows = await res.json();
+    for (const r of rows) {
+        alert('⏰ ' + r.text);
+    }
+}, 30000);
+</script>
+{% endblock %}

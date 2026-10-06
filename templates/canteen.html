@@ -1,0 +1,10 @@
+{% extends "base.html" %}
+{% block content %}
+<h1>🍽 Меню столовой (неделя {{ week }})</h1>
+{% for day, dish in menu.items() %}
+<div class="card">
+    <b>{{ day }}</b>: {{ dish }}
+</div>
+{% endfor %}
+<div class="card muted">🥗 Воскресенье — столовая не работает.</div>
+{% endblock %}

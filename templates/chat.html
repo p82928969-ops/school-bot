@@ -1,0 +1,51 @@
+{% extends "base.html" %}
+{% block content %}
+<h1>💬 AI-чат <small>(режим: {{ mode_title }})</small></h1>
+<div id="chat" class="chat"></div>
+<form id="chat-form" class="chat-form">
+    <input id="chat-input" placeholder="Напиши сообщение..." autocomplete="off" required>
+    <button type="submit">➤</button>
+    <button type="button" id="chat-reset" title="Очистить историю">🧹</button>
+</form>
+
+<script>
+const chatEl = document.getElementById('chat');
+const inputEl = document.getElementById('chat-input');
+
+function addMsg(role, text) {
+    const div = document.createElement('div');
+    div.className = 'msg ' + role;
+    div.textContent = text;
+    chatEl.appendChild(div);
+    chatEl.scrollTop = chatEl.scrollHeight;
+}
+
+async function loadHistory() {
+    const res = await fetch('/api/chat/history');
+    const rows = await res.json();
+    rows.forEach(r => addMsg(r.role, r.content));
+}
+
+document.getElementById('chat-form').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const text = inputEl.value.trim();
+    if (!text) return;
+    addMsg('user', text);
+    inputEl.value = '';
+    const res = await fetch('/api/chat', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({message: text}),
+    });
+    const data = await res.json();
+    addMsg('assistant', data.answer || data.error);
+});
+
+document.getElementById('chat-reset').addEventListener('click', async () => {
+    await fetch('/api/chat/reset', {method: 'POST'});
+    chatEl.innerHTML = '';
+});
+
+loadHistory();
+</script>
+{% endblock %}

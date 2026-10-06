@@ -1,0 +1,48 @@
+{% extends "base.html" %}
+{% block content %}
+<h1>🏫 Школа</h1>
+
+{% if not school %}
+    {% if current_user.mode != 'student' %}
+    <form method="post" action="{{ url_for('school_create') }}" class="card">
+        <h3>Создать школу</h3>
+        <input name="name" placeholder="Название школы" required>
+        <button>Создать</button>
+    </form>
+    {% endif %}
+    <form method="post" action="{{ url_for('school_join') }}" class="card">
+        <h3>Присоединиться по коду</h3>
+        <input name="code" placeholder="Код школы" required>
+        <button>Войти</button>
+    </form>
+{% else %}
+<div class="card">
+    <p><b>Название:</b> {{ school.name }}</p>
+    <p><b>Код:</b> {{ school.code }}</p>
+    <p><b>Классов:</b> {{ school.classes|length }}</p>
+    <p><b>Участников:</b> {{ school.members|length }}</p>
+</div>
+
+{% if school.director_id == current_user.id %}
+<h2>Классы</h2>
+<div class="card">
+    {% for c in school.classes %}
+    <span class="tag">
+        {{ c.name }}
+        <form method="post" action="{{ url_for('school_class_delete', cid=c.id) }}" style="display:inline">
+            <button class="danger small">×</button>
+        </form>
+    </span>
+    {% endfor %}
+</div>
+<form method="post" action="{{ url_for('school_class_add') }}" class="card row">
+    <input name="name" placeholder="Новый класс (например, 5Г)" required>
+    <button>Добавить</button>
+</form>
+
+<form method="post" action="{{ url_for('school_delete') }}" onsubmit="return confirm('Удалить школу?')">
+    <button class="danger">🗑 Удалить школу</button>
+</form>
+{% endif %}
+{% endif %}
+{% endblock %}
