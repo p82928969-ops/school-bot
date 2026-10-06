@@ -3,6 +3,7 @@ import asyncio
 import random
 import secrets
 import re
+import math
 from datetime import datetime, timedelta, date
 
 from dotenv import load_dotenv
@@ -14,7 +15,6 @@ from flask_login import (
     LoginManager, login_user, logout_user, login_required,
     current_user,
 )
-from werkzeug.security import generate_password_hash
 
 from models import (
     db, User, School, Class, TeacherStudent, StudentParent,
@@ -22,6 +22,7 @@ from models import (
 )
 from ai import ask_ai
 
+# ===== ЗАГРУЗКА .env =====
 load_dotenv()
 
 # ===== НАСТРОЙКИ =====
@@ -33,6 +34,7 @@ SYSTEM_PROMPT = os.getenv(
 )
 MAX_HISTORY = int(os.getenv("MAX_HISTORY", "10"))
 
+# ===== СПИСКИ =====
 SUBJECTS = [
     "Русский", "Литература", "Татарский", "Английский",
     "Алгебра", "Геометрия", "Теория вероятности",
@@ -41,7 +43,10 @@ SUBJECTS = [
     "Физкультура", "ОБЖ", "Черчение", "ПРОЕКТ",
 ]
 
-DAYS = ["Понедельник", "Вторник", "Среда", "Четверг", "Пятница", "Суббота", "Воскресенье"]
+DAYS = [
+    "Понедельник", "Вторник", "Среда", "Четверг",
+    "Пятница", "Суббота", "Воскресенье",
+]
 
 CUISINES = [
     "🍝 Итальянская: паста карбонара, пицца Маргарита, тирамису",
@@ -56,12 +61,22 @@ CUISINES = [
     "🍔 Американская: бургер, картошка, милкшейк",
 ]
 
-MODE_TITLES = {"student": "🎓 Ученик", "parent": "👨‍👩‍👧 Родитель", "teacher": "👩‍🏫 Учитель"}
+MODE_TITLES = {
+    "student": "🎓 Ученик",
+    "parent": "👨‍👩‍👧 Родитель",
+    "teacher": "👩‍🏫 Учитель",
+}
 
-# ===== ИНИЦИАЛИЗАЦИЯ =====
+# ===== ИНИЦИАЛИЗАЦИЯ FLASK =====
 app = Flask(__name__)
 app.config["SECRET_KEY"] = SECRET_KEY
-app.config["SQLALCHEMY_DATABASE_URI"] = "sqlite:///school.db"
+
+# База данных: сначала пробуем DATABASE_URL (для Render), иначе SQLite (для локалки)
+DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///school.db")
+# Render отдаёт postgres:// — SQLAlchemy требует postgresql://
+if DATABASE_URL.startswith("postgres://"):
+    DATABASE_URL = DATABASE_URL.replace("postgres://", "postgresql://", 1)
+app.config["SQLALCHEMY_DATABASE_URI"] = DATABASE_URL
 app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
 
 db.init_app(app)
@@ -91,7 +106,7 @@ def unique_code(model, field):
     return gen_code(8)
 
 
-def parse_grades(text: str) -> list[float]:
+def parse_grades(text: str) -> list:
     parts = re.split(r"[,\s;]+", (text or "").strip())
     out = []
     for p in parts:
@@ -107,11 +122,10 @@ def parse_grades(text: str) -> list[float]:
 
 
 def round_school(x: float) -> int:
-    import math
     return math.floor(x + 0.4)
 
 
-def avg_of(vals: list[float]) -> float:
+def avg_of(vals: list) -> float:
     return sum(vals) / len(vals) if vals else 0.0
 
 
@@ -125,12 +139,7 @@ def encouragement(avg: float) -> str:
     return "🌱 Не сдавайся! У тебя всё получится."
 
 
-def days_before(user_id: int) -> dict:
-    rows = Schedule.query.filter_by(user_id=user_id).all()
-    return {r.day: r.content for r in rows}
-
-
-def my_school() -> School | None:
+def my_school():
     if not current_user.is_authenticated:
         return None
     if current_user.school_id:
@@ -190,7 +199,7 @@ def logout():
     return redirect(url_for("login"))
 
 
-# ===== ГЛАВНАЯ =====
+# ===== ГЛАВНАЯ (AI-чат) =====
 @app.route("/")
 @login_required
 def index():
@@ -200,7 +209,6 @@ def index():
     )
 
 
-# ===== AI-ЧАТ =====
 @app.route("/api/chat", methods=["POST"])
 @login_required
 def api_chat():
@@ -208,11 +216,9 @@ def api_chat():
     if not text:
         return jsonify({"error": "Пустое сообщение"}), 400
 
-    # сохраняем сообщение пользователя
     db.session.add(ChatMessage(user_id=current_user.id, role="user", content=text))
     db.session.commit()
 
-    # собираем историю
     history = [{"role": "system", "content": SYSTEM_PROMPT}]
     rows = (
         ChatMessage.query
@@ -268,9 +274,7 @@ def profile():
         return redirect(url_for("profile"))
 
     school = my_school()
-    classes = []
-    if school:
-        classes = [c.name for c in school.classes]
+    classes = [c.name for c in school.classes] if school else []
 
     return render_template(
         "profile.html",
@@ -346,7 +350,7 @@ def grades():
         return redirect(url_for("grades"))
 
     rows = Grade.query.filter_by(user_id=current_user.id).all()
-    per_subj: dict[str, list[float]] = {}
+    per_subj = {}
     for r in rows:
         per_subj.setdefault(r.subject, []).append(r.value)
 
@@ -380,8 +384,7 @@ def grades_calc():
         return redirect(url_for("grades"))
     avg = avg_of(values)
     flash(
-        f"Средний: {avg:.2f}, округлённо: {round_school(avg)}. "
-        f"{encouragement(avg)}",
+        f"Средний: {avg:.2f}, округлённо: {round_school(avg)}. {encouragement(avg)}",
         "ok",
     )
     return redirect(url_for("grades"))
@@ -466,14 +469,13 @@ def reminders():
         flash("Напоминание добавлено", "ok")
         return redirect(url_for("reminders"))
 
-    now = datetime.now()
     items = (
         Reminder.query
         .filter_by(user_id=current_user.id)
         .order_by(Reminder.when.asc())
         .all()
     )
-    return render_template("reminders.html", items=items, now=now)
+    return render_template("reminders.html", items=items, now=datetime.now())
 
 
 @app.route("/reminders/delete/<int:rid>", methods=["POST"])
@@ -529,7 +531,6 @@ def school_create():
     db.session.add(s)
     db.session.commit()
     current_user.school_id = s.id
-    # создать стандартные классы
     for g in range(1, 12):
         for l in ["А", "Б", "В"]:
             db.session.add(Class(school_id=s.id, name=f"{g}{l}"))
@@ -547,7 +548,6 @@ def school_join():
         flash("Школа не найдена", "error")
         return redirect(url_for("school_page"))
     current_user.school_id = s.id
-    # если класса ещё нет — назначить первый
     if not current_user.class_id and s.classes:
         current_user.class_id = s.classes[0].id
     db.session.commit()
@@ -581,7 +581,6 @@ def school_class_delete(cid):
         abort(403)
     c = Class.query.filter_by(id=cid, school_id=s.id).first()
     if c:
-        # сбросить класс у пользователей
         User.query.filter_by(class_id=c.id).update({"class_id": None})
         db.session.delete(c)
         db.session.commit()
@@ -654,12 +653,14 @@ def canteen():
     return render_template("canteen.html", menu=menu, week=iso_week)
 
 
-# ===== ЗАПУСК =====
+# ===== ИНИЦИАЛИЗАЦИЯ БД =====
 def init_db():
     with app.app_context():
         db.create_all()
 
 
+# ===== ЗАПУСК =====
 if __name__ == "__main__":
     init_db()
-    app.run(debug=True)
+    port = int(os.environ.get("PORT", 5000))
+    app.run(host="0.0.0.0", port=port, debug=False)
